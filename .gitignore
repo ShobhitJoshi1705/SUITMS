@@ -1,0 +1,31 @@
+# Python / Environment
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+
+# Output Data
+records/
+runs/
+Dataset/runs/
+
+# Ignore all model weights except your specifically trained one
+*.pt
+!Dataset/runs/detect/helmet_training/weights/best.pt
+
+# Ignore large datasets in the root folder
+all_images/
+raw_data/
+raw_labels/
+
+# Ignore datasets inside Dataset folder
+Dataset/all_images/
+Dataset/raw_data/
+Dataset/raw_labels/
+Dataset/labels/
+Dataset/images/
+
+# IDE files
+.vscode/

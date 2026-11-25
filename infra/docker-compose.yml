@@ -1,0 +1,214 @@
+services:
+  # --- High-Performance Reverse Proxy & Load Balancer ---
+  nginx:
+    image: nginx:alpine
+    container_name: suitms-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - suitms-net
+
+  # --- Streamlit UI Service ---
+  streamlit:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.streamlit
+    container_name: suitms-streamlit
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/app/storage_data
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suitms-net
+
+  # --- Stateless API Node 1 ---
+  api-1:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    container_name: suitms-api-1
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/app/storage_data
+    volumes:
+      - artifacts-data:/app/storage_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - suitms-net
+
+  # --- Stateless API Node 2 (Horizontal Replica) ---
+  api-2:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    container_name: suitms-api-2
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/app/storage_data
+    volumes:
+      - artifacts-data:/app/storage_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - suitms-net
+
+  # --- Asynchronous Inference Worker 1 ---
+  worker-1:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.worker
+    container_name: suitms-worker-1
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/app/storage_data
+    volumes:
+      - artifacts-data:/app/storage_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suitms-net
+
+  # --- Asynchronous Inference Worker 2 (Horizontal Replica) ---
+  worker-2:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.worker
+    container_name: suitms-worker-2
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOCAL_STORAGE_DIR=/app/storage_data
+    volumes:
+      - artifacts-data:/app/storage_data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - suitms-net
+
+  # --- Edge Camera Simulator / Ingestion Client ---
+  edge-simulator:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.edge
+    container_name: suitms-edge-sim
+    restart: unless-stopped
+    environment:
+      - API_INGEST_URL=http://nginx/api/v1/violations/ingest
+    depends_on:
+      - nginx
+    networks:
+      - suitms-net
+
+  # --- React Citizen & Authority Web Application ---
+  frontend:
+    build:
+      context: ../frontend/web-portal
+      dockerfile: ../../infra/Dockerfile.frontend
+    container_name: suitms-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - suitms-net
+
+  # --- Primary Relational Database (PostgreSQL) ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: suitms-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=suitms_user
+      - POSTGRES_PASSWORD=suitms_secure_pass_2026
+      - POSTGRES_DB=suitms_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U suitms_user -d suitms_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - suitms-net
+
+  # --- In-Memory Cache, Rate-Limiting & Streams (Redis) ---
+  redis:
+    image: redis:7-alpine
+    container_name: suitms-redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - suitms-net
+
+volumes:
+  postgres-data:
+  redis-data:
+  artifacts-data:
+
+networks:
+  suitms-net:
+    driver: bridge

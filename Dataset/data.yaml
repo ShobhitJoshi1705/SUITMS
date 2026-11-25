@@ -1,0 +1,13 @@
+train: D:/TrafficViolation/Dataset/images/train
+val: D:/TrafficViolation/Dataset/images/valid
+test: D:/TrafficViolation/Dataset/images/test
+
+nc: 5
+names: ["bike", "helmet", "no_helmet", "number_plate", "rider"]
+
+roboflow:
+  workspace: shristi-rawat-lrgu9
+  project: traffic-violation-detection-aciuy
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/shristi-rawat-lrgu9/traffic-violation-detection-aciuy/dataset/1

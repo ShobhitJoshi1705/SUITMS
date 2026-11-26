@@ -1,9 +1,16 @@
-const API_BASE = '/api/v1';
+// The frontend is also published directly on port 3000, where its static
+// server may serve index.html for unknown paths. In that case, send API calls
+// to the host's port-80 gateway instead of the frontend origin.
+const API_ORIGIN = window.location.port === '3000'
+  ? `${window.location.protocol}//${window.location.hostname}`
+  : '';
+const API_BASE = `${API_ORIGIN}/api/v1`;
 
 export const apiClient = {
   async getHealth() {
     try {
-      const res = await fetch(`${API_BASE}/health/ready`);
+      const res = await fetch(`${API_ORIGIN}/health/ready`);
+      if (!res.ok) throw new Error(`Health check failed (${res.status})`);
       return await res.json();
     } catch (err) {
       return { status: 'OFFLINE', ready: false };
@@ -111,6 +118,19 @@ export const apiClient = {
         detected_objects: []
       })
     });
-    return await res.json();
+
+    const contentType = res.headers.get('content-type') || '';
+    const body = contentType.includes('application/json')
+      ? await res.json()
+      : await res.text();
+
+    if (!res.ok) {
+      const detail = typeof body === 'string' ? body : body.detail || JSON.stringify(body);
+      throw new Error(`Request failed (${res.status}): ${detail}`);
+    }
+    if (typeof body === 'string') {
+      throw new Error(`Expected a JSON response but received: ${body.slice(0, 160)}`);
+    }
+    return body;
   }
 };

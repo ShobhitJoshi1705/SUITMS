@@ -3,6 +3,7 @@ import json
 import uuid
 import random
 import logging
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import httpx
 from services.common.config import settings
@@ -29,7 +30,11 @@ class EdgeCameraSimulator:
     VIOLATION_TYPES = ["NO_HELMET", "TRIPLE_RIDING", "SPEEDING", "RED_LIGHT"]
 
     def __init__(self, api_base_url: Optional[str] = None):
-        self.api_url = api_base_url or f"http://localhost:{settings.PORT}{settings.API_V1_PREFIX}/violations/ingest"
+        self.api_url = (
+            api_base_url
+            or os.getenv("API_INGEST_URL")
+            or f"http://localhost:{settings.PORT}{settings.API_V1_PREFIX}/violations/ingest"
+        )
         self.spooler = DiskSpooler(spool_dir=settings.SPOOL_DIR)
         self.http_client = httpx.Client(timeout=3.0)
 
@@ -53,7 +58,7 @@ class EdgeCameraSimulator:
             "zone_id": cam["zone_id"],
             "latitude": cam["lat"],
             "longitude": cam["lon"],
-            "timestamp": time.time(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "violation_type": v_type,
             "confidence": round(random.uniform(0.88, 0.99), 2),
             "raw_plate_text": plate,
@@ -68,7 +73,22 @@ class EdgeCameraSimulator:
     def send_to_backend(self, event: Dict[str, Any]) -> bool:
         """Sends payload over HTTP to FastAPI central ingestion endpoint."""
         try:
-            resp = self.http_client.post(self.api_url, json=event)
+            # Older spool files may contain epoch timestamps. The API schema
+            # expects an ISO timestamp string, so normalize those during replay.
+            payload = dict(event)
+            timestamp = payload.get("timestamp")
+            if isinstance(timestamp, (int, float)):
+                payload["timestamp"] = datetime.fromtimestamp(
+                    timestamp, tz=timezone.utc
+                ).isoformat()
+
+            resp = self.http_client.post(self.api_url, json=payload)
+            if resp.is_error:
+                logger.warning(
+                    "Backend rejected event with HTTP %s: %s",
+                    resp.status_code,
+                    resp.text[:500],
+                )
             return resp.status_code in [200, 201, 202]
         except Exception as e:
             logger.warning(f"Transmission to backend failed: {e}")

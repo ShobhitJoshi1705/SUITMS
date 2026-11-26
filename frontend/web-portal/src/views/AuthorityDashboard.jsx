@@ -13,6 +13,7 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
   const [hotspots, setHotspots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [dataError, setDataError] = useState('');
 
   // Filters
   const [plateFilter, setPlateFilter] = useState('');
@@ -21,19 +22,30 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [sumRes, vioRes, chRes, repRes, hotRes] = await Promise.all([
-        apiClient.getSummary().catch(() => null),
-        apiClient.getViolations({ limit: 30 }).catch(() => []),
-        apiClient.getChallans({ limit: 30 }).catch(() => []),
-        apiClient.getCitizenReports({ limit: 30 }).catch(() => []),
-        apiClient.getHotspots().catch(() => []),
+      const results = await Promise.allSettled([
+        apiClient.getSummary(),
+        apiClient.getViolations({ limit: 30 }),
+        apiClient.getChallans({ limit: 30 }),
+        apiClient.getCitizenReports({ limit: 30 }),
+        apiClient.getHotspots(),
       ]);
+      const setters = [setSummary, setViolations, setChallans, setReports, setHotspots];
+      const labels = ['analytics', 'violations', 'challans', 'citizen reports', 'hotspots'];
+      const failedRequests = [];
 
-      if (sumRes) setSummary(sumRes);
-      setViolations(vioRes || []);
-      setChallans(chRes || []);
-      setReports(repRes || []);
-      setHotspots(hotRes || []);
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          setters[index](result.value);
+        } else {
+          console.error(`Failed to load ${labels[index]}:`, result.reason);
+          failedRequests.push(labels[index]);
+        }
+      });
+      setDataError(
+        failedRequests.length
+          ? `Could not load ${failedRequests.join(', ')}. Check that the API services are available.`
+          : ''
+      );
     } catch (e) {
       console.error('Data reload error:', e);
     } finally {
@@ -111,6 +123,12 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
           </button>
         </div>
       </div>
+
+      {dataError && (
+        <div role="alert" className="rounded-xl border border-rose-800 bg-rose-950/50 px-4 py-3 text-sm text-rose-200">
+          {dataError}
+        </div>
+      )}
 
       {/* KPI Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

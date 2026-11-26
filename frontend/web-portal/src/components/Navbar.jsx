@@ -4,7 +4,7 @@ export default function Navbar({ activeTab, setActiveTab, systemStatus }) {
   const isHealthy = systemStatus?.ready;
 
   return (
-    <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-6 py-3">
+    <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-6 py-3 glass-panel-interactive">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>

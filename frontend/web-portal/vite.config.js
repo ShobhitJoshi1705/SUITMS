@@ -8,15 +8,15 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://nginx',
         changeOrigin: true
       },
       '/artifacts': {
-        target: 'http://localhost:8000',
+        target: 'http://nginx',
         changeOrigin: true
       },
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: 'ws://nginx',
         ws: true
       }
     }

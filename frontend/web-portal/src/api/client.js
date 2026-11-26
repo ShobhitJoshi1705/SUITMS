@@ -3,7 +3,7 @@ const API_BASE = '/api/v1';
 export const apiClient = {
   async getHealth() {
     try {
-      const res = await fetch('/health/ready');
+      const res = await fetch(`${API_BASE}/health/ready`);
       return await res.json();
     } catch (err) {
       return { status: 'OFFLINE', ready: false };

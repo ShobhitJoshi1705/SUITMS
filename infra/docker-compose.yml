@@ -11,8 +11,6 @@ services:
     depends_on:
       api-1:
         condition: service_healthy
-      api-2:
-        condition: service_healthy
       frontend:
         condition: service_started
     networks:
@@ -70,34 +68,7 @@ services:
     networks:
       - suitms-net
 
-  # --- Stateless API Node 2 (Horizontal Replica) ---
-  api-2:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.api
-    container_name: suitms-api-2
-    restart: unless-stopped
-    environment:
-      - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOCAL_STORAGE_DIR=/app/storage_data
-    volumes:
-      - artifacts-data:/app/storage_data
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    networks:
-      - suitms-net
+
 
   # --- Asynchronous Inference Worker 1 ---
   worker-1:
@@ -122,40 +93,40 @@ services:
       - suitms-net
 
   # --- Asynchronous Inference Worker 2 (Horizontal Replica) ---
-  worker-2:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.worker
-    container_name: suitms-worker-2
-    restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOCAL_STORAGE_DIR=/app/storage_data
-    volumes:
-      - artifacts-data:/app/storage_data
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - suitms-net
+  # worker-2:
+  #   build:
+  #     context: ..
+  #     dockerfile: infra/Dockerfile.worker
+  #   container_name: suitms-worker-2
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgresql+psycopg2://suitms_user:suitms_secure_pass_2026@postgres:5432/suitms_db
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - LOCAL_STORAGE_DIR=/app/storage_data
+  #   volumes:
+  #     - artifacts-data:/app/storage_data
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - suitms-net
 
   # --- Edge Camera Simulator / Ingestion Client ---
-  edge-simulator:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.edge
-    container_name: suitms-edge-sim
-    restart: unless-stopped
-    environment:
-      - API_INGEST_URL=http://nginx/api/v1/violations/ingest
-    depends_on:
-      - nginx
-    networks:
-      - suitms-net
+  # edge-simulator:
+  #   build:
+  #     context: ..
+  #     dockerfile: infra/Dockerfile.edge
+  #   container_name: suitms-edge-sim
+  #   restart: unless-stopped
+  #   environment:
+  #     - API_INGEST_URL=http://nginx/api/v1/violations/ingest
+  #   depends_on:
+  #     - nginx
+  #   networks:
+  #     - suitms-net
 
   # --- React Citizen & Authority Web Application ---
   frontend:
@@ -189,26 +160,26 @@ services:
       - suitms-net
 
   # --- In-Memory Cache, Rate-Limiting & Streams (Redis) ---
-  redis:
-    image: redis:7-alpine
-    container_name: suitms-redis
-    restart: always
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - suitms-net
+#   redis:
+#     image: redis:7-alpine
+#     container_name: suitms-redis
+#     restart: always
+#     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+#     volumes:
+#       - redis-data:/data
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 5s
+#       timeout: 3s
+#       retries: 5
+#     networks:
+#       - suitms-net
 
-volumes:
-  postgres-data:
-  redis-data:
-  artifacts-data:
+# volumes:
+#   postgres-data:
+#   redis-data:
+#   artifacts-data:
 
-networks:
-  suitms-net:
-    driver: bridge
+# networks:
+#   suitms-net:
+#     driver: bridge

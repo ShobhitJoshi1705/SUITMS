@@ -1,8 +1,7 @@
-// The frontend is also published directly on port 3000, where its static
-// server may serve index.html for unknown paths. In that case, send API calls
-// to the host's port-80 gateway instead of the frontend origin.
+// The frontend is published directly on port 3000. Send API calls to the
+// loopback-only API port instead of the frontend's static-file server.
 const API_ORIGIN = window.location.port === '3000'
-  ? `${window.location.protocol}//${window.location.hostname}`
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
   : '';
 const API_BASE = `${API_ORIGIN}/api/v1`;
 
@@ -127,6 +126,29 @@ export const apiClient = {
     if (!res.ok) {
       const detail = typeof body === 'string' ? body : body.detail || JSON.stringify(body);
       throw new Error(`Request failed (${res.status}): ${detail}`);
+    }
+    if (typeof body === 'string') {
+      throw new Error(`Expected a JSON response but received: ${body.slice(0, 160)}`);
+    }
+    return body;
+  },
+
+  async uploadViolationImage(imageFile) {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const res = await fetch(`${API_BASE}/violations/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+    const contentType = res.headers.get('content-type') || '';
+    const body = contentType.includes('application/json')
+      ? await res.json()
+      : await res.text();
+
+    if (!res.ok) {
+      const detail = typeof body === 'string' ? body : body.detail || JSON.stringify(body);
+      throw new Error(`Image upload failed (${res.status}): ${detail}`);
     }
     if (typeof body === 'string') {
       throw new Error(`Expected a JSON response but received: ${body.slice(0, 160)}`);

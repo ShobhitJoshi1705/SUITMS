@@ -28,9 +28,9 @@ class InferenceWorker:
     Consumes detection events from Redis Stream, executes ALPR, plate normalization,
     rule verification, and idempotent Challan ticket generation.
     """
-    def __init__(self):
-        self.detector = TrafficDetector()
-        self.ocr_engine = ALPROCREngine()
+    def __init__(self, detector=None, ocr_engine=None):
+        self.detector = detector or TrafficDetector()
+        self.ocr_engine = ocr_engine or ALPROCREngine()
         self.hazard_engine = HazardDetector()
         self.redis_client = None
         self.circuit_breaker = CircuitBreaker("redis-worker", failure_threshold=3, recovery_time_seconds=5.0)
@@ -74,9 +74,10 @@ class InferenceWorker:
         # Step 1: Extract & Normalize License Plate
         raw_plate = payload.get("raw_plate_text")
         seed_hint = payload.get("event_id") or f"{camera_id}_{time.time()}"
-        plate_number, ocr_conf, is_valid_plate = self.ocr_engine.extract_plate(seed_hint=seed_hint)
         if raw_plate:
             plate_number = raw_plate
+        else:
+            plate_number, ocr_conf, is_valid_plate = self.ocr_engine.extract_plate(seed_hint=seed_hint)
 
         # Step 2: Detect Violations
         violation_type = payload.get("violation_type")

@@ -13,7 +13,10 @@ class TrafficDetector:
     when weights are not present locally.
     """
     def __init__(self, model_path: Optional[str] = None):
-        self.model_path = model_path or os.getenv("YOLO_MODEL_PATH", r"Dataset\runs\detect\helmet_training\weights\best.pt")
+        self.model_path = model_path or os.getenv(
+            "YOLO_MODEL_PATH",
+            os.path.join("Dataset", "runs", "detect", "helmet_training", "weights", "best.pt"),
+        )
         self.yolo_model = None
         self._load_model()
 

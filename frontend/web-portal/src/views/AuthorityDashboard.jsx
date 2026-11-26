@@ -13,6 +13,10 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
   const [hotspots, setHotspots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const [uploadError, setUploadError] = useState('');
   const [dataError, setDataError] = useState('');
 
   // Filters
@@ -68,6 +72,44 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
       alert('Simulation error: ' + e.message);
     } finally {
       setSimulating(false);
+    }
+  };
+
+  const handleImageUpload = async (event) => {
+    event.preventDefault();
+    if (!imageFile) {
+      setUploadError('Choose a traffic image first.');
+      return;
+    }
+
+    setUploadingImage(true);
+    setUploadError('');
+    setUploadMessage('Analyzing image...');
+    try {
+      const response = await apiClient.uploadViolationImage(imageFile);
+      if (response.status === 'no_violation') {
+        const modeNote = response.detection_mode === 'simulated_fallback'
+          ? ' No trained YOLO weights were loaded, so this result is not a real image detection.'
+          : '';
+        setUploadMessage(`${response.message}${modeNote}`);
+      } else {
+        const challanNumber = response.result?.challan_number;
+        const outcome = challanNumber
+          ? `Violation detected. Challan ${challanNumber} was created.`
+          : 'Image processed. The violation was already recorded.';
+        const modeNote = response.detection_mode === 'simulated_fallback'
+          ? ' No trained YOLO weights were loaded, so this result used the simulator fallback.'
+          : '';
+        setUploadMessage(`${outcome}${modeNote}`);
+        setImageFile(null);
+        event.target.reset();
+        await loadData();
+      }
+    } catch (error) {
+      setUploadMessage('');
+      setUploadError(error.message);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -129,6 +171,34 @@ export default function AuthorityDashboard({ realTimeEvents = [] }) {
           {dataError}
         </div>
       )}
+
+      <form onSubmit={handleImageUpload} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="mr-auto">
+            <h3 className="text-sm font-bold text-white">Upload Traffic Image</h3>
+            <p className="mt-1 text-xs text-slate-400">Analyze a JPEG, PNG, or WEBP image (up to 10 MB) and issue a challan for a detected violation.</p>
+          </div>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              setImageFile(event.target.files?.[0] || null);
+              setUploadMessage('');
+              setUploadError('');
+            }}
+            className="max-w-full text-xs text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-slate-100 hover:file:bg-slate-700"
+          />
+          <button
+            type="submit"
+            disabled={uploadingImage || !imageFile}
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {uploadingImage ? 'Analyzing...' : 'Detect & Create Challan'}
+          </button>
+        </div>
+        {uploadMessage && <p role="status" className="mt-3 text-sm text-emerald-300">{uploadMessage}</p>}
+        {uploadError && <p role="alert" className="mt-3 text-sm text-rose-300">{uploadError}</p>}
+      </form>
 
       {/* KPI Metrics Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -52,8 +52,12 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LOCAL_STORAGE_DIR=/app/storage_data
+      - YOLO_MODEL_PATH=${YOLO_MODEL_PATH:-/app/models/best.pt}
     volumes:
       - artifacts-data:/app/storage_data
+      - ./models:/app/models:ro
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,8 +86,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LOCAL_STORAGE_DIR=/app/storage_data
+      - YOLO_MODEL_PATH=${YOLO_MODEL_PATH:-/app/models/best.pt}
     volumes:
       - artifacts-data:/app/storage_data
+      - ./models:/app/models:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,8 +110,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - LOCAL_STORAGE_DIR=/app/storage_data
+      - YOLO_MODEL_PATH=${YOLO_MODEL_PATH:-/app/models/best.pt}
     volumes:
       - artifacts-data:/app/storage_data
+      - ./models:/app/models:ro
     depends_on:
       postgres:
         condition: service_healthy

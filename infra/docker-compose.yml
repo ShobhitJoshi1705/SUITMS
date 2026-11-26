@@ -160,26 +160,26 @@ services:
       - suitms-net
 
   # --- In-Memory Cache, Rate-Limiting & Streams (Redis) ---
-#   redis:
-#     image: redis:7-alpine
-#     container_name: suitms-redis
-#     restart: always
-#     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
-#     volumes:
-#       - redis-data:/data
-#     healthcheck:
-#       test: ["CMD", "redis-cli", "ping"]
-#       interval: 5s
-#       timeout: 3s
-#       retries: 5
-#     networks:
-#       - suitms-net
+  redis:
+    image: redis:7-alpine
+    container_name: suitms-redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - suitms-net
 
-# volumes:
-#   postgres-data:
-#   redis-data:
-#   artifacts-data:
+volumes:
+  postgres-data:
+  redis-data:
+  artifacts-data:
 
-# networks:
-#   suitms-net:
-#     driver: bridge
+networks:
+  suitms-net:
+    driver: bridge
